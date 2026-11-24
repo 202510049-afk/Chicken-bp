@@ -1,0 +1,226 @@
+import tkinter as tk
+from tkinter import messagebox, ttk
+import json
+from datetime import datetime
+import os
+
+# File to save our data
+DATA_FILE = "cluckcare_data.json"
+
+def load_data():
+    if os.path.exists(DATA_FILE):
+        with open(DATA_FILE, "r") as f:
+            return json.load(f)
+    return {"chickens": [], "eggs": [], "feed": [], "notes": []}
+
+def save_data(data):
+    with open(DATA_FILE, "w") as f:
+        json.dump(data, f, indent=2)
+
+class CluckCareApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("🐔 CluckCare — Chicken Farm Manager")
+        self.root.geometry("700x500")
+        self.data = load_data()
+        
+        # Create tabs
+        self.notebook = ttk.Notebook(root)
+        self.notebook.pack(pady=10, padx=10, fill="both", expand=True)
+        
+        self.tab_chickens = ttk.Frame(self.notebook)
+        self.tab_eggs = ttk.Frame(self.notebook)
+        self.tab_feed = ttk.Frame(self.notebook)
+        self.tab_notes = ttk.Frame(self.notebook)
+        self.tab_summary = ttk.Frame(self.notebook)
+        
+        self.notebook.add(self.tab_chickens, text=" 🐔 Chickens ")
+        self.notebook.add(self.tab_eggs, text=" 🥚 Eggs ")
+        self.notebook.add(self.tab_feed, text=" 🌾 Feed ")
+        self.notebook.add(self.tab_notes, text=" 📝 Notes ")
+        self.notebook.add(self.tab_summary, text=" 📊 Summary ")
+        
+        self.setup_chickens_tab()
+        self.setup_eggs_tab()
+        self.setup_feed_tab()
+        self.setup_notes_tab()
+        self.setup_summary_tab()
+        self.update_summary()
+    
+    # ========== CHICKENS TAB ==========
+    def setup_chickens_tab(self):
+        ttk.Label(self.tab_chickens, text="Breed:").grid(row=0, column=0, padx=5, pady=5, sticky="w")
+        self.breed_entry = ttk.Entry(self.tab_chickens)
+        self.breed_entry.grid(row=0, column=1, padx=5, pady=5)
+        
+        ttk.Label(self.tab_chickens, text="Number:").grid(row=0, column=2, padx=5, pady=5, sticky="w")
+        self.count_entry = ttk.Entry(self.tab_chickens)
+        self.count_entry.grid(row=0, column=3, padx=5, pady=5)
+        
+        ttk.Label(self.tab_chickens, text="Age (weeks):").grid(row=1, column=0, padx=5, pady=5, sticky="w")
+        self.age_entry = ttk.Entry(self.tab_chickens)
+        self.age_entry.grid(row=1, column=1, padx=5, pady=5)
+        
+        ttk.Button(self.tab_chickens, text="➕ Add Flock", command=self.add_chicken).grid(row=2, column=0, columnspan=4, pady=10)
+        
+        self.chickens_tree = ttk.Treeview(self.tab_chickens, columns=("breed", "count", "age"), show="headings")
+        self.chickens_tree.heading("breed", text="Breed")
+        self.chickens_tree.heading("count", text="Count")
+        self.chickens_tree.heading("age", text="Age (weeks)")
+        self.chickens_tree.grid(row=3, column=0, columnspan=4, pady=5, padx=5, sticky="nsew")
+        self.refresh_chickens_list()
+    
+    def add_chicken(self):
+        breed = self.breed_entry.get().strip()
+        count = self.count_entry.get().strip()
+        age = self.age_entry.get().strip()
+        
+        if not breed or not count:
+            messagebox.showwarning("Oops!", "Please enter breed and count!")
+            return
+        
+        self.data["chickens"].append({
+            "breed": breed,
+            "count": int(count),
+            "age": int(age) if age else 0,
+            "date": datetime.now().strftime("%Y-%m-%d")
+        })
+        save_data(self.data)
+        self.refresh_chickens_list()
+        self.update_summary()
+        self.breed_entry.delete(0, tk.END)
+        self.count_entry.delete(0, tk.END)
+        self.age_entry.delete(0, tk.END)
+    
+    def refresh_chickens_list(self):
+        for item in self.chickens_tree.get_children():
+            self.chickens_tree.delete(item)
+        for c in self.data["chickens"]:
+            self.chickens_tree.insert("", "end", values=(c["breed"], c["count"], c["age"]))
+    
+    # ========== EGGS TAB ==========
+    def setup_eggs_tab(self):
+        ttk.Label(self.tab_eggs, text="Eggs Collected:").grid(row=0, column=0, padx=5, pady=10, sticky="w")
+        self.egg_count = ttk.Entry(self.tab_eggs)
+        self.egg_count.grid(row=0, column=1, padx=5, pady=10)
+        
+        ttk.Button(self.tab_eggs, text="🥚 Record Eggs", command=self.add_eggs).grid(row=1, column=0, columnspan=2, pady=5)
+        
+        self.eggs_tree = ttk.Treeview(self.tab_eggs, columns=("date", "count"), show="headings")
+        self.eggs_tree.heading("date", text="Date")
+        self.eggs_tree.heading("count", text="Eggs")
+        self.eggs_tree.grid(row=2, column=0, columnspan=2, pady=5, padx=5, sticky="nsew")
+        self.refresh_eggs_list()
+    
+    def add_eggs(self):
+        count = self.egg_count.get().strip()
+        if not count:
+            return
+        today = datetime.now().strftime("%Y-%m-%d")
+        self.data["eggs"].append({"date": today, "count": int(count)})
+        save_data(self.data)
+        self.refresh_eggs_list()
+        self.update_summary()
+        self.egg_count.delete(0, tk.END)
+    
+    def refresh_eggs_list(self):
+        for item in self.eggs_tree.get_children():
+            self.eggs_tree.delete(item)
+        for e in reversed(self.data["eggs"]):
+            self.eggs_tree.insert("", "end", values=(e["date"], e["count"]))
+    
+    # ========== FEED TAB ==========
+    def setup_feed_tab(self):
+        ttk.Label(self.tab_feed, text="Feed Type:").grid(row=0, column=0, padx=5, pady=5, sticky="w")
+        self.feed_type = ttk.Entry(self.tab_feed)
+        self.feed_type.grid(row=0, column=1, padx=5, pady=5)
+        
+        ttk.Label(self.tab_feed, text="Cost (₱):").grid(row=1, column=0, padx=5, pady=5, sticky="w")
+        self.feed_cost = ttk.Entry(self.tab_feed)
+        self.feed_cost.grid(row=1, column=1, padx=5, pady=5)
+        
+        ttk.Button(self.tab_feed, text="🌾 Record Feed", command=self.add_feed).grid(row=2, column=0, columnspan=2, pady=10)
+        
+        self.feed_tree = ttk.Treeview(self.tab_feed, columns=("date", "type", "cost"), show="headings")
+        self.feed_tree.heading("date", text="Date")
+        self.feed_tree.heading("type", text="Type")
+        self.feed_tree.heading("cost", text="Cost (₱)")
+        self.feed_tree.grid(row=3, column=0, columnspan=2, pady=5, padx=5, sticky="nsew")
+        self.refresh_feed_list()
+    
+    def add_feed(self):
+        feed_type = self.feed_type.get().strip()
+        cost = self.feed_cost.get().strip()
+        if not feed_type or not cost:
+            return
+        today = datetime.now().strftime("%Y-%m-%d")
+        self.data["feed"].append({"date": today, "type": feed_type, "cost": float(cost)})
+        save_data(self.data)
+        self.refresh_feed_list()
+        self.update_summary()
+        self.feed_type.delete(0, tk.END)
+        self.feed_cost.delete(0, tk.END)
+    
+    def refresh_feed_list(self):
+        for item in self.feed_tree.get_children():
+            self.feed_tree.delete(item)
+        for f in reversed(self.data["feed"]):
+            self.feed_tree.insert("", "end", values=(f["date"], f["type"], f["cost"]))
+    
+    # ========== NOTES TAB ==========
+    def setup_notes_tab(self):
+        ttk.Label(self.tab_notes, text="Daily Notes / Observations:").pack(pady=5, anchor="w")
+        self.notes_text = tk.Text(self.tab_notes, height=12, width=70)
+        self.notes_text.pack(pady=5, padx=5)
+        
+        ttk.Button(self.tab_notes, text="💾 Save Note", command=self.save_note).pack(pady=5)
+        
+        self.notes_tree = ttk.Treeview(self.tab_notes, columns=("date", "note"), show="headings")
+        self.notes_tree.heading("date", text="Date")
+        self.notes_tree.heading("note", text="Note")
+        self.notes_tree.pack(pady=5, padx=5, fill="both", expand=True)
+        self.refresh_notes_list()
+    
+    def save_note(self):
+        text = self.notes_text.get("1.0", tk.END).strip()
+        if not text:
+            return
+        today = datetime.now().strftime("%Y-%m-%d")
+        self.data["notes"].append({"date": today, "note": text})
+        save_data(self.data)
+        self.refresh_notes_list()
+        self.notes_text.delete("1.0", tk.END)
+    
+    def refresh_notes_list(self):
+        for item in self.notes_tree.get_children():
+            self.notes_tree.delete(item)
+        for n in reversed(self.data["notes"]):
+            short_note = n["note"][:50] + "..." if len(n["note"]) > 50 else n["note"]
+            self.notes_tree.insert("", "end", values=(n["date"], short_note))
+    
+    # ========== SUMMARY TAB ==========
+    def setup_summary_tab(self):
+        self.summary_label = ttk.Label(self.tab_summary, text="", font=("Arial", 12))
+        self.summary_label.pack(pady=30, anchor="w")
+    
+    def update_summary(self):
+        total_chickens = sum(c["count"] for c in self.data["chickens"])
+        total_eggs = sum(e["count"] for e in self.data["eggs"])
+        total_cost = sum(f["cost"] for f in self.data["feed"])
+        
+        summary_text = f"""
+        📊 FARM SUMMARY
+        ───────────────────────
+        🐔 Total Chickens:   {total_chickens}
+        🥚 Total Eggs Collected:  {total_eggs}
+        🌾 Total Feed Cost:   ₱{total_cost:.2f}
+        ───────────────────────
+        Keep up the great work! 🌻
+        """
+        self.summary_label.config(text=summary_text)
+
+# Run the app!
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = CluckCareApp(root)
+    root.mainloop()
